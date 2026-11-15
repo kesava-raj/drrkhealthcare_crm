@@ -1,4 +1,4 @@
-import { Medicine, Batch, Supplier, Profile, AuditLogEntry } from '@/types/database';
+import { Medicine, Batch, Supplier, Profile, AuditLogEntry, StockMovement } from '@/types/database';
 import { createClient } from './supabase/client';
 import { INITIAL_MEDICINES, INITIAL_BATCHES, INITIAL_SUPPLIERS, INITIAL_TEST_PROFILES, INITIAL_AUDIT_LOGS } from './mockData';
 
@@ -8,6 +8,7 @@ const STORAGE_KEY_BATCHES = 'drrk_pharmacy_batches';
 const STORAGE_KEY_SUPPLIERS = 'drrk_pharmacy_suppliers';
 const STORAGE_KEY_AUDIT = 'drrk_pharmacy_audit';
 const STORAGE_KEY_USERS = 'drrk_pharmacy_users';
+const STORAGE_KEY_MOVEMENTS = 'drrk_pharmacy_stock_movements';
 
 export function isSupabaseConfigured(): boolean {
   return Boolean(
@@ -522,6 +523,107 @@ function recordMockAudit(
     changed_at: new Date().toISOString(),
   });
   setLocal(STORAGE_KEY_AUDIT, logs.slice(0, 100));
+}
+
+// ----------------------------------------------------------------------
+// STOCK IN / OUT MOVEMENTS (STOCK LEDGER)
+// ----------------------------------------------------------------------
+
+export interface StockMovementSummary {
+  movements: StockMovement[];
+  summary: {
+    total_in: number;
+    total_out: number;
+    net_balance: number;
+  };
+}
+
+export async function fetchStockMovements(medicineId?: string): Promise<StockMovementSummary> {
+  const configured = isSupabaseConfigured();
+
+  if (configured && typeof window !== 'undefined') {
+    try {
+      const url = medicineId
+        ? `/api/stock-movements?medicine_id=${encodeURIComponent(medicineId)}`
+        : '/api/stock-movements';
+      const res = await fetch(url);
+      if (res.ok) {
+        const json = await res.json();
+        if (json.success) {
+          return {
+            movements: json.movements || [],
+            summary: json.summary || { total_in: 0, total_out: 0, net_balance: 0 },
+          };
+        }
+      }
+    } catch (e) {
+      console.warn('API /api/stock-movements fetch failed:', e);
+    }
+  }
+
+  // Fallback to local data
+  const allMovements = getLocal<StockMovement[]>(STORAGE_KEY_MOVEMENTS, []);
+  const filtered = medicineId ? allMovements.filter((m) => m.medicine_id === medicineId) : allMovements;
+  let totalIn = 0;
+  let totalOut = 0;
+  filtered.forEach((m) => {
+    if (m.quantity_change > 0) totalIn += m.quantity_change;
+    else totalOut += Math.abs(m.quantity_change);
+  });
+
+  return {
+    movements: filtered,
+    summary: { total_in: totalIn, total_out: totalOut, net_balance: totalIn - totalOut },
+  };
+}
+
+export async function recordStockMovement(data: {
+  medicine_id: string;
+  batch_id?: string | null;
+  movement_type: 'initial' | 'purchase' | 'sale' | 'adjustment' | 'return' | 'expired_disposal';
+  quantity_change: number;
+  reason?: string;
+  created_by?: string;
+  user_name?: string;
+}): Promise<{ success: boolean; movement?: StockMovement; error?: string }> {
+  const configured = isSupabaseConfigured();
+
+  if (configured && typeof window !== 'undefined') {
+    try {
+      const res = await fetch('/api/stock-movements', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+      if (res.ok) {
+        const json = await res.json();
+        if (json.success) {
+          return { success: true, movement: json.movement };
+        }
+      }
+    } catch (e: any) {
+      return { success: false, error: e.message };
+    }
+  }
+
+  // Local fallback
+  const allMovements = getLocal<StockMovement[]>(STORAGE_KEY_MOVEMENTS, []);
+  const newMovement: StockMovement = {
+    id: 'sm-' + Date.now(),
+    medicine_id: data.medicine_id,
+    batch_id: data.batch_id || null,
+    movement_type: data.movement_type,
+    quantity_change: data.quantity_change,
+    balance_after: Math.max(0, data.quantity_change),
+    reason: data.reason || 'Manual movement',
+    created_by: data.created_by,
+    created_by_name: data.user_name || 'Staff',
+    created_at: new Date().toISOString(),
+  };
+  allMovements.unshift(newMovement);
+  setLocal(STORAGE_KEY_MOVEMENTS, allMovements);
+
+  return { success: true, movement: newMovement };
 }
 
 // ----------------------------------------------------------------------

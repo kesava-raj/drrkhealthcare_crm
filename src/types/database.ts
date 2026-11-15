@@ -78,6 +78,10 @@ export interface StockMovement {
   reference_id?: string | null;
   created_by?: string | null;
   created_at: string;
+  // Joined display fields
+  medicine_name?: string;
+  batch_number?: string;
+  created_by_name?: string;
 }
 
 export interface AuditLogEntry {

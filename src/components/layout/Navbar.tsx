@@ -15,7 +15,8 @@ import {
   ShieldCheck, 
   CheckCircle2, 
   AlertTriangle,
-  UserCheck
+  UserCheck,
+  ShoppingCart
 } from 'lucide-react';
 
 export default function Navbar() {
@@ -38,6 +39,12 @@ export default function Navbar() {
       show: true,
     },
     {
+      label: 'POS Billing',
+      href: '/billing',
+      icon: ShoppingCart,
+      show: true,
+    },
+    {
       label: 'Users & Staff',
       href: '/users',
       icon: Users,
@@ -54,7 +61,6 @@ export default function Navbar() {
       href: '/accounts',
       icon: BookOpen,
       show: canViewAccounts,
-      tag: 'Stage 3',
     },
   ];
 

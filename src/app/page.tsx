@@ -29,8 +29,10 @@ import {
   RefreshCw,
   ExternalLink,
   Database,
-  ArrowUpDown
+  ArrowUpDown,
+  ShoppingCart
 } from 'lucide-react';
+import Link from 'next/link';
 
 export default function InventoryPage() {
   const { canEditInventory, role, user } = useAuth();
@@ -208,6 +210,14 @@ export default function InventoryPage() {
             >
               <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin text-teal-600' : ''}`} />
             </button>
+
+            <Link
+              href="/billing"
+              className="px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-bold text-teal-800 bg-teal-50 hover:bg-teal-100 border border-teal-200 flex items-center gap-1.5 transition shadow-xs"
+            >
+              <ShoppingCart className="w-4 h-4 text-teal-600" />
+              <span>POS Billing</span>
+            </Link>
 
             {canEditInventory ? (
               <button

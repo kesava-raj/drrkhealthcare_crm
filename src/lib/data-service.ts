@@ -1,4 +1,4 @@
-import { Medicine, Batch, Supplier, Profile, AuditLogEntry, StockMovement } from '@/types/database';
+import { Medicine, Batch, Supplier, Profile, AuditLogEntry, StockMovement, Sale } from '@/types/database';
 import { createClient } from './supabase/client';
 import { INITIAL_MEDICINES, INITIAL_BATCHES, INITIAL_SUPPLIERS, INITIAL_TEST_PROFILES, INITIAL_AUDIT_LOGS } from './mockData';
 
@@ -683,3 +683,71 @@ function processMedicinesWithBatches(medicines: Medicine[], batches: Batch[]): M
       };
     });
 }
+
+// ----------------------------------------------------------------------
+// SALES BILLING & POS
+// ----------------------------------------------------------------------
+
+export async function fetchSales(search?: string): Promise<Sale[]> {
+  try {
+    const url = search ? `/api/sales?search=${encodeURIComponent(search)}` : '/api/sales';
+    const res = await fetch(url, { cache: 'no-store' });
+    const json = await res.json();
+    if (json.success && Array.isArray(json.sales)) {
+      return json.sales;
+    }
+  } catch (err) {
+    console.warn('API /api/sales fetch failed:', err);
+  }
+  return [];
+}
+
+export async function recordSale(payload: {
+  customer_name?: string;
+  customer_phone?: string;
+  doctor_name?: string;
+  payment_method: string;
+  discount_amount?: number;
+  items: Array<{
+    medicine_id: string;
+    batch_id: string;
+    quantity: number;
+    unit_price: number;
+    mrp: number;
+    tax_percentage: number;
+    medicine_name?: string;
+  }>;
+  user?: { id: string; name: string };
+}): Promise<{ success: boolean; sale?: Sale; bill_number?: string; error?: string }> {
+  try {
+    const res = await fetch('/api/sales', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        customer_name: payload.customer_name,
+        customer_phone: payload.customer_phone,
+        doctor_name: payload.doctor_name,
+        payment_method: payload.payment_method,
+        discount_amount: payload.discount_amount || 0,
+        items: payload.items,
+        created_by: payload.user?.id || null,
+        user_name: payload.user?.name || 'Counter Staff',
+      }),
+    });
+
+    const json = await res.json();
+    if (!res.ok || json.error) {
+      return { success: false, error: json.error || 'Failed to complete sale' };
+    }
+
+    return {
+      success: true,
+      sale: json.sale,
+      bill_number: json.bill_number,
+    };
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Network error';
+    return { success: false, error: message };
+  }
+}
+

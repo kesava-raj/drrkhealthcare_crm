@@ -101,3 +101,77 @@ export interface AppSetting {
   value: string;
   description?: string;
 }
+
+export interface Sale {
+  id: string;
+  bill_number: string;
+  customer_name?: string | null;
+  customer_phone?: string | null;
+  doctor_name?: string | null;
+  total_amount: number;
+  discount_amount: number;
+  tax_amount: number;
+  net_amount: number;
+  payment_method: 'cash' | 'card' | 'upi' | 'credit';
+  created_by?: string | null;
+  is_active: boolean;
+  created_at: string;
+  updated_at?: string;
+  // joined fields
+  items?: SaleItem[];
+  created_by_name?: string;
+}
+
+export interface SaleItem {
+  id: string;
+  sale_id: string;
+  medicine_id: string;
+  batch_id: string;
+  quantity: number;
+  unit_price: number;
+  mrp: number;
+  tax_percentage: number;
+  total_amount: number;
+  created_at?: string;
+  // joined fields
+  medicine_name?: string;
+  batch_number?: string;
+  expiry_date?: string;
+}
+
+export interface LedgerAccount {
+  id: string;
+  account_code: string;
+  account_name: string;
+  account_type: 'asset' | 'liability' | 'equity' | 'revenue' | 'expense';
+  description?: string | null;
+  is_active: boolean;
+  created_at?: string;
+  current_balance?: number;
+}
+
+export interface JournalEntry {
+  id: string;
+  entry_date: string;
+  reference_type: 'sale' | 'purchase' | 'manual' | 'expense' | 'payment' | 'reversal';
+  reference_id?: string | null;
+  description: string;
+  total_amount: number;
+  is_reversed: boolean;
+  reversed_by_id?: string | null;
+  created_by?: string | null;
+  created_at?: string;
+  lines?: JournalEntryLine[];
+}
+
+export interface JournalEntryLine {
+  id: string;
+  entry_id: string;
+  account_id: string;
+  debit: number;
+  credit: number;
+  created_at?: string;
+  account_code?: string;
+  account_name?: string;
+}
+
